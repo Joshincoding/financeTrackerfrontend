@@ -1,4 +1,4 @@
-// Enhanced App.jsx: Fixed white screen issue on login and ensured dashboard renders correctly
+// Enhanced App.jsx with Budgets & Notifications UI
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -7,14 +7,10 @@ import Lottie from 'lottie-react';
 import financeAnimation from './assets/finance-lottie.json';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 
-//const api = axios.create({ baseURL: 'http://localhost:5001' });
-//const api = axios.create({ baseURL: 'https://financetracker-kqqw.onrender.com' });
-
 const api = axios.create({
   baseURL: 'https://financetracker-kqqw.onrender.com',
-  withCredentials: true // 🛡️ needed for secure cross-origin requests
+  withCredentials: true
 });
-
 
 export default function App() {
   const [email, setEmail] = useState('');
@@ -32,68 +28,14 @@ export default function App() {
   const [transactions, setTransactions] = useState([]);
   const [categoriesList, setCategoriesList] = useState([]);
   const [usersList, setUsersList] = useState([]);
+  const [budgets, setBudgets] = useState([]);
+  const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(false);
   const [filterCategory, setFilterCategory] = useState('');
   const [editingTransaction, setEditingTransaction] = useState(null);
 
-
   const isDark = darkMode ? 'dark bg-gray-900 text-white' : '';
 
-  const [ocrLoading, setOcrLoading] = useState(false);
-
-  const handleReceiptUpload = (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
-    setOcrLoading(true);
-    Tesseract.recognize(file, 'eng')
-      .then(({ data: { text } }) => {
-        setReceiptText(text);
-        autoFillFromText(text);
-      })
-      .finally(() => setOcrLoading(false));
-  };
-
-  const autoFillFromText = (text) => {
-    const amountMatch = text.match(/\$\s?\d+(\.\d{2})?/);
-    const dateMatch = text.match(/\d{1,2}\/\d{1,2}\/\d{2,4}/);
-    if (amountMatch) setAmount(amountMatch[0].replace('$', '').trim());
-    if (dateMatch) setDescription(prev => `${prev} | Date: ${dateMatch[0]}`);
-    const categoryKeywords = {
-      food: ['restaurant', 'cafe', 'burger', 'pizza'],
-      transport: ['uber', 'taxi', 'bus', 'train'],
-      shopping: ['mall', 'store', 'receipt', 'item'],
-      groceries: ['grocery', 'market', 'supermarket']
-    };
-    for (const [cat, keywords] of Object.entries(categoryKeywords)) {
-      if (keywords.some(k => text.toLowerCase().includes(k))) {
-        setCategory(cat);
-        break;
-      }
-    }
-  };
-
-  const fetchUserData = async (newToken) => {
-    try {
-      const userRes = await api.get('/me', { headers: { Authorization: `Bearer ${newToken}` } });
-      setUserRole(userRes.data.role);
-      await api.post('/profile', { display_name: userRes.data.email, dark_mode: false }, { headers: { Authorization: `Bearer ${newToken}` } });
-      const profileRes = await api.get('/profile', { headers: { Authorization: `Bearer ${newToken}` } });
-      setProfile(profileRes.data);
-      setDarkMode(profileRes.data.dark_mode);
-      if (userRes.data.role === 'admin') await getUsers(newToken);
-    } catch (err) {
-      console.error('User setup failed', err);
-    }
-  };
-
-  const startEditing = (transaction) => {
-    setEditingTransaction(transaction);
-    setAmount(transaction.amount);
-    setCategory(transaction.category);
-    setCustomCategory(transaction.category); // in case it's a custom one
-    setDescription(transaction.description);
-  };
-  
   const login = async () => {
     try {
       setLoading(true);
@@ -130,14 +72,17 @@ export default function App() {
     setProfile(null);
   };
 
-  const updateProfile = async () => {
+  const fetchUserData = async (newToken) => {
     try {
-      await api.post('/profile', { display_name: editingName, dark_mode: darkMode }, { headers: { Authorization: `Bearer ${token}` } });
-      const res = await api.get('/profile', { headers: { Authorization: `Bearer ${token}` } });
-      setProfile(res.data);
-      setEditing(false);
-    } catch {
-      alert('Failed to update profile');
+      const userRes = await api.get('/me', { headers: { Authorization: `Bearer ${newToken}` } });
+      setUserRole(userRes.data.role);
+      await api.post('/profile', { display_name: userRes.data.email, dark_mode: false }, { headers: { Authorization: `Bearer ${newToken}` } });
+      const profileRes = await api.get('/profile', { headers: { Authorization: `Bearer ${newToken}` } });
+      setProfile(profileRes.data);
+      setDarkMode(profileRes.data.dark_mode);
+      if (userRes.data.role === 'admin') await getUsers(newToken);
+    } catch (err) {
+      console.error('User setup failed', err);
     }
   };
 
@@ -163,7 +108,6 @@ export default function App() {
   const addTransaction = async () => {
     try {
       const selectedCategory = category === 'Other' ? customCategory : category;
-  
       if (editingTransaction) {
         await api.put(`/transactions/${editingTransaction._id}`, {
           amount,
@@ -177,7 +121,6 @@ export default function App() {
           description
         }, { headers: { Authorization: `Bearer ${token}` } });
       }
-  
       setAmount('');
       setCategory('');
       setCustomCategory('');
@@ -188,7 +131,6 @@ export default function App() {
       alert('Failed to submit transaction');
     }
   };
-  
 
   const deleteTransaction = async id => {
     try {
@@ -212,14 +154,41 @@ export default function App() {
     link.click();
   };
 
+  const getBudgets = async () => {
+    const res = await api.get('/budgets', { headers: { Authorization: `Bearer ${token}` } });
+    setBudgets(res.data);
+  };
+
+  const createBudget = async () => {
+    try {
+      await api.post('/budgets', {
+        category,
+        limit: parseFloat(amount),
+        duration: description
+      }, { headers: { Authorization: `Bearer ${token}` } });
+      setAmount('');
+      setCategory('');
+      setDescription('');
+      getBudgets();
+    } catch (err) {
+      alert('Failed to add budget');
+    }
+  };
+
+  const getNotifications = async () => {
+    const res = await api.get('/notifications', { headers: { Authorization: `Bearer ${token}` } });
+    setNotifications(res.data.reverse());
+  };
+
   useEffect(() => {
     if (token) {
       getTransactions();
       getCategories();
+      getBudgets();
+      getNotifications();
       fetchUserData(token);
     }
   }, [token]);
-
   const filteredTransactions = transactions.filter(t => !filterCategory || t.category?.toLowerCase().includes(filterCategory.toLowerCase()));
   const total = filteredTransactions.reduce((sum, t) => sum + parseFloat(t.amount), 0);
   const categoryTotals = filteredTransactions.reduce((acc, t) => {
