@@ -35,6 +35,9 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [filterCategory, setFilterCategory] = useState('');
   const [editingTransaction, setEditingTransaction] = useState(null);
+  const [budgets, setBudgets] = useState([]);
+  const [notifications, setNotifications] = useState([]);
+
 
 
   const isDark = darkMode ? 'dark bg-gray-900 text-white' : '';
@@ -160,6 +163,41 @@ export default function App() {
     }
   };
 
+  const createBudget = async () => {
+  try {
+    await api.post('/budgets', {
+      category,
+      limit: parseFloat(amount),
+      duration: description
+    }, { headers: { Authorization: `Bearer ${token}` } });
+    setAmount('');
+    setCategory('');
+    setDescription('');
+    getBudgets();
+  } catch (err) {
+    alert('Failed to add budget');
+  }
+};
+
+const getBudgets = async () => {
+  try {
+    const res = await api.get('/budgets', { headers: { Authorization: `Bearer ${token}` } });
+    setBudgets(res.data);
+  } catch (err) {
+    console.error('Failed to fetch budgets');
+  }
+};
+
+const getNotifications = async () => {
+  try {
+    const res = await api.get('/notifications', { headers: { Authorization: `Bearer ${token}` } });
+    setNotifications(res.data.reverse());
+  } catch (err) {
+    console.error('Failed to fetch notifications');
+  }
+};
+
+  
   const addTransaction = async () => {
     try {
       const selectedCategory = category === 'Other' ? customCategory : category;
@@ -212,13 +250,16 @@ export default function App() {
     link.click();
   };
 
-  useEffect(() => {
-    if (token) {
-      getTransactions();
-      getCategories();
-      fetchUserData(token);
-    }
-  }, [token]);
+useEffect(() => {
+  if (token) {
+    getTransactions();
+    getCategories();
+    fetchUserData(token);
+    getBudgets(); // 👈 Add this
+    getNotifications(); // 👈 And this
+  }
+}, [token]);
+
 
   const filteredTransactions = transactions.filter(t => !filterCategory || t.category?.toLowerCase().includes(filterCategory.toLowerCase()));
   const total = filteredTransactions.reduce((sum, t) => sum + parseFloat(t.amount), 0);
@@ -335,7 +376,63 @@ export default function App() {
           </ResponsiveContainer>
         </div>
 
-        
+        <div className="my-6">
+  <h2 className="text-xl font-bold mb-4 text-indigo-700 dark:text-indigo-300">💰 Budgets</h2>
+
+  <div className="flex flex-col sm:flex-row gap-4 mb-4">
+    <input
+      placeholder="Category"
+      value={category}
+      onChange={e => setCategory(e.target.value)}
+      className="p-3 border rounded-xl flex-1"
+    />
+    <input
+      placeholder="Limit"
+      value={amount}
+      onChange={e => setAmount(e.target.value)}
+      type="number"
+      className="p-3 border rounded-xl flex-1"
+    />
+    <select
+      className="p-3 border rounded-xl flex-1"
+      onChange={e => setDescription(e.target.value)}
+      value={description}
+    >
+      <option value="">Duration</option>
+      <option value="monthly">Monthly</option>
+      <option value="weekly">Weekly</option>
+    </select>
+    <button
+      className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-xl shadow"
+      onClick={createBudget}
+    >
+      Add Budget
+    </button>
+  </div>
+
+  <ul className="divide-y divide-gray-200 dark:divide-gray-700">
+    {budgets.map((b, idx) => (
+      <li key={idx} className="py-2 flex justify-between items-center">
+        <span>
+          <strong>{b.category}</strong> — ${b.limit} ({b.duration})
+        </span>
+      </li>
+    ))}
+  </ul>
+</div>
+
+<div className="mt-6">
+  <h3 className="text-lg font-semibold mb-2 text-indigo-700 dark:text-indigo-300">🔔 Notifications</h3>
+  <ul className="text-sm space-y-2">
+    {notifications.map((n, idx) => (
+      <li key={idx} className="bg-gray-100 dark:bg-gray-700 p-3 rounded-xl shadow">
+        <p>{n.message}</p>
+        <p className="text-xs text-gray-500 dark:text-gray-400">{new Date(n.timestamp).toLocaleString()}</p>
+      </li>
+    ))}
+  </ul>
+</div>
+
   
         <ul className="divide-y divide-gray-200 dark:divide-gray-700">
           <AnimatePresence>
