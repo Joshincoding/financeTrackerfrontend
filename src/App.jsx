@@ -7,7 +7,10 @@ import Lottie from 'lottie-react';
 import financeAnimation from './assets/finance-lottie.json';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 
-const api = axios.create({ baseURL: 'http://localhost:5001' });
+//const api = axios.create({ baseURL: 'http://localhost:5001' });
+const api = axios.create({ baseURL: 'https://financetracker-kqqw.onrender.com' });
+
+
 
 export default function App() {
   const [email, setEmail] = useState('');
