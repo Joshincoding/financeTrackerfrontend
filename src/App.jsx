@@ -8,8 +8,12 @@ import financeAnimation from './assets/finance-lottie.json';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 
 //const api = axios.create({ baseURL: 'http://localhost:5001' });
-const api = axios.create({ baseURL: 'https://financetracker-kqqw.onrender.com' });
+//const api = axios.create({ baseURL: 'https://financetracker-kqqw.onrender.com' });
 
+const api = axios.create({
+  baseURL: 'https://financetracker-kqqw.onrender.com',
+  withCredentials: true // 🛡️ needed for secure cross-origin requests
+});
 
 
 export default function App() {
